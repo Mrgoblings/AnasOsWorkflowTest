@@ -24,3 +24,4 @@ run:
 clean:
 	-@rm -r out
 	-@rm -r anasos-kernel/target
+
