@@ -29,6 +29,17 @@ jobs:
           draft: false
           prerelease: false
 
+      - name: Output Release URL File
+        run: |
+          echo "${{ steps.create_release.outputs.upload_url }}" > release_url.txt
+
+      - name: Save Release URL File for publish
+        uses: actions/upload-artifact@v2
+        with:
+          name: release_url
+          path: release_url.txt
+
+
   build:
     name: Build packages
     needs: create-release
@@ -53,6 +64,19 @@ jobs:
       - name: Archive build output
         run: |
           zip -r AnasOS.iso.zip AnasOS.iso
+
+      - name: Load Release URL File from release job
+        id: download_release_info
+        uses: actions/download-artifact@v2
+        with:
+          name: release_url
+
+      - name: Get Release File Name & Upload URL
+        id: get_release_info
+        shell: bash
+        run: |
+          value=`cat "${{steps.download_release_info.outputs.download-path}}${{matrix.SLASH}}release_url.txt"`
+          echo ::set-output name=upload_url::$value
 
       - name: Upload Release Asset
         uses: actions/upload-release-asset@v1
