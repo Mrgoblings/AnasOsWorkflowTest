@@ -1,37 +1,73 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - 'v*.*.*'
+  pull_request:
+    branches: [ "main" ]
+    types: [closed]
+  workflow_dispatch:
+    inputs:
+      tag_version:
+        description: 'Tag version for manual release'
+        required: false
+        default: 'v0.0.0'
 
 permissions:
-  contents: read
-  issues: write
-  pull-requests: write
+  contents: write
+  pull-requests: read
 
 jobs:
   create-release:
+    if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main'
     name: Create Release
     runs-on: ubuntu-latest
+    
     steps:
       - name: Checkout with GitHub
         uses: actions/checkout@v3
 
+      - name: Get current version
+        id: get_version
+        run: echo ::set-output name=version::$(git describe --tags --abbrev=0)
+
+      - name: Determine version increment
+        id: determine_increment
+        run: |
+          pr_title="${{ github.event.pull_request.title }}"
+          if [[ "$pr_title" == *"[Major]"* ]]; then
+            echo "increment=major" >> $GITHUB_ENV
+          elif [[ "$pr_title" == *"[Minor]"* ]]; then
+            echo "increment=minor" >> $GITHUB_ENV
+          elif [[ "$pr_title" == *"[Patch]"* ]]; then
+            echo "increment=patch" >> $GITHUB_ENV
+          else # Defaults to minor
+            echo "increment=minor" >> $GITHUB_ENV
+          fi
+
+      - name: Increment version
+        id: increment_version
+        uses: paulhatch/semantic-version@v5.4.0
+        with:
+          tag_prefix: "v"
+          version_type: ${{ env.increment }}
+
       - name: Create Release
         id: release-action
         uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ steps.increment_version.outputs.new_version }}
+          name: Release ${{ steps.increment_version.outputs.new_version }}
+          commit: ${{ github.sha }}
+          body: ${{ github.event.pull_request.body }}
 
       - name: Output Release URL File
         run: |
-          echo "${{ steps.create_release.outputs.upload_url }}" > release_url.txt
+          echo "${{ steps.release-action.outputs.upload_url }}" > release_url.txt
 
       - name: Save Release URL File for publish
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: release_url
           path: release_url.txt
-
 
   build:
     name: Build packages
@@ -40,7 +76,7 @@ jobs:
 
     steps:
       - name: Checkout with GitHub
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Install additional dependencies
         run: |
@@ -57,7 +93,7 @@ jobs:
 
       - name: Load Release URL File from release job
         id: download_release_info
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           name: release_url
 
@@ -65,7 +101,7 @@ jobs:
         id: get_release_info
         shell: bash
         run: |
-          value=`cat "${{steps.download_release_info.outputs.download-path}}${{matrix.SLASH}}release_url.txt"`
+          value=`cat "${{steps.download_release_info.outputs.download-path}}/release_url.txt"`
           echo ::set-output name=upload_url::$value
 
       - name: Upload Release Asset
@@ -73,7 +109,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          upload_url: ${{ steps.get_release_info.outputs.upload_url }}
           asset_path: AnasOS.iso.zip
           asset_name: AnasOS.iso.zip
           asset_content_type: application/zip
