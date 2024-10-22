@@ -1,33 +1,73 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - 'v*.*.*'
+  pull_request:
+    branches: [ "main" ]
+    types: [closed]
+  workflow_dispatch:
+    inputs:
+      tag_version:
+        description: 'Tag version for manual release'
+        required: false
+        default: 'v0.0.0'
 
 permissions:
-  contents: read
-  issues: write
-  pull-requests: write
+  contents: write
+  pull-requests: read
 
 jobs:
   create-release:
+    if: github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main'
     name: Create Release
     runs-on: ubuntu-latest
+    
     steps:
       - name: Checkout with GitHub
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
+
+      - name: Get current version
+        id: get_version
+        run: echo ::set-output name=version::$(git describe --tags --abbrev=0)
+
+      - name: Determine version increment
+        id: determine_increment
+        run: |
+          pr_title="${{ github.event.pull_request.title }}"
+          if [[ "$pr_title" == *"[Major]"* ]]; then
+            echo "increment=major" >> $GITHUB_ENV
+          elif [[ "$pr_title" == *"[Minor]"* ]]; then
+            echo "increment=minor" >> $GITHUB_ENV
+          elif [[ "$pr_title" == *"[Patch]"* ]]; then
+            echo "increment=patch" >> $GITHUB_ENV
+          else # Defaults to minor
+            echo "increment=minor" >> $GITHUB_ENV
+          fi
+
+      - name: Increment version
+        id: increment_version
+        uses: paulhatch/semantic-version@v5.4.0
+        with:
+          tag_prefix: "v"
+          version_type: ${{ env.increment }}
 
       - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        id: release-action
+        uses: ncipollo/release-action@v1
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          draft: false
-          prerelease: false
+          tag: ${{ steps.increment_version.outputs.new_version }}
+          name: Release ${{ steps.increment_version.outputs.new_version }}
+          commit: ${{ github.sha }}
+          body: ${{ github.event.pull_request.body }}
+
+      - name: Output Release URL File
+        run: |
+          echo "${{ steps.release-action.outputs.upload_url }}" > release_url.txt
+
+      - name: Save Release URL File for publish
+        uses: actions/upload-artifact@v4
+        with:
+          name: release_url
+          path: release_url.txt
 
   build:
     name: Build packages
@@ -36,15 +76,12 @@ jobs:
 
     steps:
       - name: Checkout with GitHub
-        uses: actions/checkout@v2
-
-      - name: Set up Docker container
-        uses: docker://rust:latest
+        uses: actions/checkout@v4
 
       - name: Install additional dependencies
         run: |
           apt-get update
-          apt-get install -y nasm grub-pc-bin grub-common
+          apt-get install -y nasm grub-pc-bin grub-common make
           rustup target add x86_64-unknown-none
 
       - name: Build project
@@ -54,12 +91,25 @@ jobs:
         run: |
           zip -r AnasOS.iso.zip AnasOS.iso
 
+      - name: Load Release URL File from release job
+        id: download_release_info
+        uses: actions/download-artifact@v4
+        with:
+          name: release_url
+
+      - name: Get Release File Name & Upload URL
+        id: get_release_info
+        shell: bash
+        run: |
+          value=`cat "${{steps.download_release_info.outputs.download-path}}/release_url.txt"`
+          echo ::set-output name=upload_url::$value
+
       - name: Upload Release Asset
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          upload_url: ${{ steps.get_release_info.outputs.upload_url }}
           asset_path: AnasOS.iso.zip
           asset_name: AnasOS.iso.zip
           asset_content_type: application/zip

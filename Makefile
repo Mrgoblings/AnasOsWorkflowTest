@@ -24,3 +24,6 @@ run:
 clean:
 	-@rm -r out
 	-@rm -r anasos-kernel/target
+
+test:
+	echo "No tests for now"
