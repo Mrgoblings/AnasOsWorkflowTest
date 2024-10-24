@@ -4,6 +4,8 @@ on:
   pull_request:
     branches: [ "main" ]
     types: [closed]
+    tags: 
+      - "v*"
   workflow_dispatch:
     inputs:
       tag_version:
@@ -49,6 +51,9 @@ jobs:
         with:
           tag_prefix: "v"
           version_type: ${{ env.increment }}
+
+      - name: Check new version
+        run: echo "New version is ${{ steps.increment_version.outputs.new_version }}"
 
       - name: Create Release
         id: release-action
