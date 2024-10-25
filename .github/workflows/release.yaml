@@ -45,6 +45,9 @@ jobs:
             echo "increment=minor" >> $GITHUB_ENV
           fi
 
+      - name: Check env.increment
+        run: echo "env.increment is ${{ env.increment }}"
+
       - name: Increment version
         id: increment_version
         uses: paulhatch/semantic-version@v5.4.0
@@ -53,14 +56,14 @@ jobs:
           version_type: ${{ env.increment }}
 
       - name: Check new version
-        run: echo "New version is ${{ steps.increment_version.outputs.new_version }}"
+        run: echo "New version is ${{ steps.increment_version.outputs.version }}"
 
       - name: Create Release
         id: release-action
         uses: ncipollo/release-action@v1
         with:
-          tag: ${{ steps.increment_version.outputs.new_version }}
-          name: Release ${{ steps.increment_version.outputs.new_version }}
+          tag: ${{ steps.increment_version.outputs.version }}
+          name: Release ${{ steps.increment_version.outputs.version }}
           commit: ${{ github.sha }}
           body: ${{ github.event.pull_request.body }}
 
