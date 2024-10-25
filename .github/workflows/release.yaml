@@ -27,33 +27,34 @@ jobs:
       - name: Checkout with GitHub
         uses: actions/checkout@v3
 
-      - name: Get current version
+      - name: Get highest release version
         id: get_version
-        run: echo ::set-output name=version::$(git describe --tags --abbrev=0)
+        run: |
+          # Sort tags by version and pick the highest; if no tags are found, use v0.0.0
+          TAG=$(git tag --list 'v*' | sort -V | tail -n 1 || echo "v0.0.0")
+          echo "version=$TAG" >> $GITHUB_ENV
 
       - name: Determine version increment
         id: determine_increment
         run: |
           pr_title="${{ github.event.pull_request.title }}"
           if [[ "$pr_title" == *"[Major]"* ]]; then
-            echo "increment=major" >> $GITHUB_ENV
+            echo "::set-output name=increment::major"
           elif [[ "$pr_title" == *"[Minor]"* ]]; then
-            echo "increment=minor" >> $GITHUB_ENV
+            echo "::set-output name=increment::minor"
           elif [[ "$pr_title" == *"[Patch]"* ]]; then
-            echo "increment=patch" >> $GITHUB_ENV
+            echo "::set-output name=increment::patch" 
           else # Defaults to minor
-            echo "increment=minor" >> $GITHUB_ENV
+            echo "::set-output name=increment::minor"
           fi
 
-      - name: Check env.increment
-        run: echo "env.increment is ${{ env.increment }}"
 
       - name: Increment version
         id: increment_version
         uses: paulhatch/semantic-version@v5.4.0
         with:
           tag_prefix: "v"
-          version_type: ${{ env.increment }}
+          version_type: ${{ steps.determine_increment.outputs.increment }}
 
       - name: Check new version
         run: echo "New version is ${{ steps.increment_version.outputs.version }}"
@@ -62,7 +63,7 @@ jobs:
         id: release-action
         uses: ncipollo/release-action@v1
         with:
-          tag: ${{ steps.increment_version.outputs.version }}
+          tag: "${{ env.version }}"
           name: Release ${{ steps.increment_version.outputs.version }}
           commit: ${{ github.sha }}
           body: ${{ github.event.pull_request.body }}
