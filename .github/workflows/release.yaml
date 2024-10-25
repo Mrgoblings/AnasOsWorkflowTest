@@ -88,8 +88,8 @@ jobs:
 
       - name: Install additional dependencies
         run: |
-          apt-get update
-          apt-get install -y nasm grub-pc-bin grub-common make
+          sudo apt update
+          sudo apt install -y nasm grub-pc-bin grub-common make
           rustup target add x86_64-unknown-none
 
       - name: Build project
