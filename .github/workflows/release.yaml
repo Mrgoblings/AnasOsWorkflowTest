@@ -19,6 +19,9 @@ jobs:
       - name: Checkout with GitHub
         uses: actions/checkout@v3
 
+      - name: Fetch tags
+        run: git fetch --prune --unshallow --tags
+
       - name: Get highest release version
         id: get_version
         run: |
