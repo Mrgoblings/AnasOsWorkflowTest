@@ -23,16 +23,19 @@ jobs:
         id: get_version
         run: |
           # Sort tags by version and pick the highest; if no tags are found, use v0.0.0
-          TAG=$(git tag --list 'v*' | sort -V | tail -n 1 || echo "v0.0.0")
-          echo "TAG=$TAG" >> $GITHUB_ENV
+          version=$(git tag --list 'v*' | sort -V | tail -n 1 || echo "v0.0.0")
+          echo "TAG=$version" >> $GITHUB_ENV
 
       - name: Determine version increment
         id: determine_increment
         run: |
             # Extract the current major, minor, and patch numbers from the TAG
             major=$(echo "$TAG" | cut -d '.' -f1 | sed 's/v//')
+            echo "Major: $major"
             minor=$(echo "$TAG" | cut -d '.' -f2)
+            echo "Minor: $minor"
             patch=$(echo "$TAG" | cut -d '.' -f3)
+            echo "Patch: $patch"
             
             # Check PR title and increment the respective part
             pr_title="${{ github.event.pull_request.title }}"
