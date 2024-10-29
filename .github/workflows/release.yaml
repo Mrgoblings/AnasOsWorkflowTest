@@ -69,8 +69,8 @@ jobs:
         id: release-action
         uses: ncipollo/release-action@v1
         with:
-          tag: $TAG
-          name: Release $TAG
+          tag: ${{ steps.determine_increment.outputs.TAG }}
+          name: Release ${{ steps.determine_increment.outputs.TAG }}
           commit: ${{ github.sha }}
           body: ${{ github.event.pull_request.body }}
 
