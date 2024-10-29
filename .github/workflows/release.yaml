@@ -106,6 +106,9 @@ jobs:
           sudo apt install -y nasm grub-pc-bin grub-common make mtools
           rustup target add x86_64-unknown-none
 
+      - name: Test project
+        run: make test
+
       - name: Build project
         run: make no-run
 
