@@ -65,19 +65,19 @@ jobs:
             echo "Updated TAG: $TAG"
             echo "TAG=$TAG" >> $GITHUB_ENV
 
-      - name: Create and push tag
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git tag $TAG
-          git push origin $TAG
+      # - name: Create and push tag
+      #   run: |
+      #     git config --global user.name "github-actions[bot]"
+      #     git config --global user.email "github-actions[bot]@users.noreply.github.com"
+      #     git tag $TAG
+      #     git push origin $TAG
 
       - name: Create Release
         id: release-action
         uses: ncipollo/release-action@v1
         with:
-          tag: ${{ steps.determine_increment.outputs.TAG }}
-          name: Release ${{ steps.determine_increment.outputs.TAG }}
+          tag: ${{ env.TAG }}
+          name: Release ${{ env.TAG }}
           commit: ${{ github.sha }}
           body: ${{ github.event.pull_request.body }}
 
