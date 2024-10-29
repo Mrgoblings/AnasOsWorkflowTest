@@ -4,14 +4,6 @@ on:
   pull_request:
     branches: [ "main" ]
     types: [closed]
-    tags: 
-      - "v*"
-  workflow_dispatch:
-    inputs:
-      tag_version:
-        description: 'Tag version for manual release'
-        required: false
-        default: 'v0.0.0'
 
 permissions:
   contents: write
@@ -39,12 +31,16 @@ jobs:
         run: |
           pr_title="${{ github.event.pull_request.title }}"
           if [[ "$pr_title" == *"[Major]"* ]]; then
+            echo "major"
             echo "::set-output name=increment::major"
           elif [[ "$pr_title" == *"[Minor]"* ]]; then
+            echo "minor"
             echo "::set-output name=increment::minor"
           elif [[ "$pr_title" == *"[Patch]"* ]]; then
+            echo "patch"
             echo "::set-output name=increment::patch" 
           else # Defaults to minor
+            echo "defaulting to minor"
             echo "::set-output name=increment::minor"
           fi
 
