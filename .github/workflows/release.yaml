@@ -24,25 +24,38 @@ jobs:
         run: |
           # Sort tags by version and pick the highest; if no tags are found, use v0.0.0
           TAG=$(git tag --list 'v*' | sort -V | tail -n 1 || echo "v0.0.0")
-          echo "version=$TAG" >> $GITHUB_ENV
+          echo "TAG=$TAG" >> $GITHUB_ENV
 
       - name: Determine version increment
         id: determine_increment
         run: |
-          pr_title="${{ github.event.pull_request.title }}"
-          if [[ "$pr_title" == *"[Major]"* ]]; then
-            echo "major"
-            echo "::set-output name=increment::major"
-          elif [[ "$pr_title" == *"[Minor]"* ]]; then
-            echo "minor"
-            echo "::set-output name=increment::minor"
-          elif [[ "$pr_title" == *"[Patch]"* ]]; then
-            echo "patch"
-            echo "::set-output name=increment::patch" 
-          else # Defaults to minor
-            echo "defaulting to minor"
-            echo "::set-output name=increment::minor"
-          fi
+            # Extract the current major, minor, and patch numbers from the TAG
+            major=$(echo "$TAG" | cut -d '.' -f1 | sed 's/v//')
+            minor=$(echo "$TAG" | cut -d '.' -f2)
+            patch=$(echo "$TAG" | cut -d '.' -f3)
+            
+            # Check PR title and increment the respective part
+            pr_title="${{ github.event.pull_request.title }}"
+            if [[ "$pr_title" == *"[Major]"* ]]; then
+                major=$((major + 1))
+                minor=0   # Reset minor and patch when incrementing major
+                patch=0
+            elif [[ "$pr_title" == *"[Minor]"* ]]; then
+                minor=$((minor + 1))
+                patch=0   # Reset patch when incrementing minor
+            elif [[ "$pr_title" == *"[Patch]"* ]]; then
+                patch=$((patch + 1))
+            else
+                echo "Defaulting to minor increment"
+                minor=$((minor + 1))
+                patch=0
+            fi
+            
+            # Recompose the TAG with the new version
+            TAG="v$major.$minor.$patch"
+            
+            # Output the new TAG to verify the increment
+            echo "Updated TAG: $TAG"
 
 
       - name: Increment version
@@ -101,7 +114,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: release_url
-          
+
 
       - name: Get Release File Name & Upload URL
         id: get_release_info
