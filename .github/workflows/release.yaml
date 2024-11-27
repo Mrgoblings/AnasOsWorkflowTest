@@ -4,15 +4,7 @@ on:
   pull_request:
     branches: [ "main" ]
     types: [closed]
-    tags: 
-      - "v*"
-  workflow_dispatch:
-    inputs:
-      tag_version:
-        description: 'Tag version for manual release'
-        required: false
-        default: 'v0.0.0'
-  
+
 permissions:
   contents: write
   pull-requests: read
@@ -27,44 +19,65 @@ jobs:
       - name: Checkout with GitHub
         uses: actions/checkout@v3
 
+      - name: Fetch tags
+        run: git fetch --prune --unshallow --tags
+
       - name: Get highest release version
         id: get_version
         run: |
           # Sort tags by version and pick the highest; if no tags are found, use v0.0.0
-          TAG=$(git tag --list 'v*' | sort -V | tail -n 1 || echo "v0.0.0")
-          echo "version=$TAG" >> $GITHUB_ENV
+          version=$(git tag --list 'v*' | sort -V | tail -n 1 || echo "v0.0.0")
+          echo "TAG=$version" >> $GITHUB_ENV
+          echo "Highest version is $version"
 
       - name: Determine version increment
         id: determine_increment
         run: |
-          pr_title="${{ github.event.pull_request.title }}"
-          if [[ "$pr_title" == *"[Major]"* ]]; then
-            echo "::set-output name=increment::major"
-          elif [[ "$pr_title" == *"[Minor]"* ]]; then
-            echo "::set-output name=increment::minor"
-          elif [[ "$pr_title" == *"[Patch]"* ]]; then
-            echo "::set-output name=increment::patch" 
-          else # Defaults to minor
-            echo "::set-output name=increment::minor"
-          fi
+            # Extract the current major, minor, and patch numbers from the TAG
+            major=$(echo "$TAG" | cut -d '.' -f1 | sed 's/v//')
+            echo "Major: $major"
+            minor=$(echo "$TAG" | cut -d '.' -f2)
+            echo "Minor: $minor"
+            patch=$(echo "$TAG" | cut -d '.' -f3)
+            echo "Patch: $patch"
+            
+            # Check PR title and increment the respective part
+            pr_title="${{ github.event.pull_request.title }}"
+            if [[ "$pr_title" == *"[Major]"* ]]; then
+                major=$((major + 1))
+                minor=0   # Reset minor and patch when incrementing major
+                patch=0
+            elif [[ "$pr_title" == *"[Minor]"* ]]; then
+                minor=$((minor + 1))
+                patch=0   # Reset patch when incrementing minor
+            elif [[ "$pr_title" == *"[Patch]"* ]]; then
+                patch=$((patch + 1))
+            else
+                echo "Defaulting to minor increment"
+                minor=$((minor + 1))
+                patch=0
+            fi
+            
+            # Recompose the TAG with the new version
+            TAG="v$major.$minor.$patch"
+            
+            # Output the new TAG to verify the increment
+            echo "Updated TAG: $TAG"
+            echo "TAG=$TAG" >> $GITHUB_ENV
 
-
-      - name: Increment version
-        id: increment_version
-        uses: paulhatch/semantic-version@v5.4.0
-        with:
-          tag_prefix: "v"
-          version_type: ${{ steps.determine_increment.outputs.increment }}
-
-      - name: Check new version
-        run: echo "New version is ${{ steps.increment_version.outputs.version }}"
+      # - name: Create and push tag
+      #   run: |
+      #     git config --global user.name "github-actions[bot]"
+      #     git config --global user.email "github-actions[bot]@users.noreply.github.com"
+      #     git tag $TAG
+      #     git push origin $TAG
 
       - name: Create Release
         id: release-action
         uses: ncipollo/release-action@v1
         with:
-          tag: "${{ env.version }}"
-          name: Release ${{ steps.increment_version.outputs.version }}
+          tag: ${{ env.TAG }}
+          name: Release ${{ env.TAG }}
           commit: ${{ github.sha }}
           body: ${{ github.event.pull_request.body }}
 
@@ -90,8 +103,11 @@ jobs:
       - name: Install additional dependencies
         run: |
           sudo apt update
-          sudo apt install -y nasm grub-pc-bin grub-common make
+          sudo apt install -y nasm grub-pc-bin grub-common make mtools
           rustup target add x86_64-unknown-none
+
+      - name: Test project
+        run: make test
 
       - name: Build project
         run: make no-run
@@ -105,6 +121,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: release_url
+
 
       - name: Get Release File Name & Upload URL
         id: get_release_info
@@ -122,3 +139,4 @@ jobs:
           asset_path: AnasOS.iso.zip
           asset_name: AnasOS.iso.zip
           asset_content_type: application/zip
+          
