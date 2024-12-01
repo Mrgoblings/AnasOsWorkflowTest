@@ -15,7 +15,7 @@ on:
 
 env:
   GIT_AUTHOR_NAME: ${{ github.actor }}
-  GIT_AUTHOR_EMAIL: ${{ github.actor }}@users.noreply.github.com
+  GIT_AUTHOR_EMAIL: ${{ secrets.EMAIL }}
 
 permissions:
   contents: write
@@ -39,7 +39,7 @@ jobs:
         with:
           source: docs
           destination: wiki
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.TOKEN }}
           gitAuthorName: ${{ env.GIT_AUTHOR_NAME }}
           gitAuthorEmail: ${{ env.GIT_AUTHOR_EMAIL }}
           branch: main
@@ -54,7 +54,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.TOKEN }}
           ref: main
 
       - name: Set Commit Message
@@ -70,7 +70,7 @@ jobs:
         with:
           source: wiki
           destination: docs
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.TOKEN }}
           gitAuthorName: ${{ env.GIT_AUTHOR_NAME }}
           gitAuthorEmail: ${{ env.GIT_AUTHOR_EMAIL }}
           branch: main
