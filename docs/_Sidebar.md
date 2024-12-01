@@ -12,6 +12,3 @@
 - [[Technologies Used|Home#technologies-used]]
 - [[CI with GitHub Actions|Home#ci-with-github-actions]]
 - [[Requirements|Home#requirements]]
-- Developer Resources
-    - [[Developer Onboarding|Developer Onboarding]]
-    - [[From a Task to a Feature - Workflow Description|From a Task to a Feature - Workflow Description]]
